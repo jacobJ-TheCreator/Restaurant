@@ -1,0 +1,285 @@
+@*
+Authors:
+Mostapha
+Jacob
+Noah
+Anton
+
+Version: 2024-08-12
+
+Description: This page allows for the management of employees within the Restaurant Management System.
+It gives you the ability to add new employees, edit existing ones, and remove employees from the system.
+The data is stored and retrieved using a SQLite DB with the help of the DatabaseHelper class.
+This page ensures that employee records are maintained accurately and kept up-to-date.
+
+*@
+
+@page "/manage-employees"
+@using ResturantManagmentSystem.Components
+@inject NavigationManager NavigationManager
+
+<h1>Manage Employees</h1>
+
+<div class="form-container">
+    <!-- Section to add a new employee -->
+    <h3 class="section-title">Add New Employee</h3>
+    <div class="add-employee-form">
+        <div class="form-group">
+            <label for="firstName">First Name:</label>
+            <input id="firstName" @bind="newEmployee.FirstName" />
+            @if (string.IsNullOrEmpty(newEmployee.FirstName))
+            {
+                <p class="error-message">First name cannot be empty.</p>
+            }
+            else if (double.TryParse(newEmployee.FirstName, out _))
+            {
+                <p class="error-message">First name cannot be a number.</p>
+            }
+        </div>
+
+        <div class="form-group">
+            <label for="lastName">Last Name:</label>
+            <input id="lastName" @bind="newEmployee.LastName" />
+            @if (string.IsNullOrEmpty(newEmployee.LastName))
+            {
+                <p class="error-message">Last name cannot be empty.</p>
+            }
+            else if (double.TryParse(newEmployee.LastName, out _))
+            {
+                <p class="error-message">Last name cannot be a number.</p>
+            }
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input id="email" @bind="newEmployee.Email" @oninput="ValidateEmail" />
+            @if (emailErrorMessage != null)
+            {
+                <p class="error-message">@emailErrorMessage</p>
+            }
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Phone:</label>
+            <input id="phone" @bind="newEmployee.Phone" @oninput="ValidatePhoneNumber" />
+            @if (phoneErrorMessage != null)
+            {
+                <p class="error-message">@phoneErrorMessage</p>
+            }
+        </div>
+
+        <div class="form-group">
+            <label for="position">Position:</label>
+            <input id="position" @bind="newEmployee.Position" />
+            @if (string.IsNullOrEmpty(newEmployee.Position))
+            {
+                <p class="error-message">Position cannot be empty.</p>
+            }
+            else if (double.TryParse(newEmployee.Position, out _))
+            {
+                <p class="error-message">Position cannot be a number.</p>
+            }
+        </div>
+
+        <button @onclick="AddEmployee">Add Employee</button>
+    </div>
+
+    <!-- Section to modify existing employees -->
+
+    <h3 class="section-title">Modify Existing Employees</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Position</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var employee in employees)
+            {
+                <tr>
+                    @if (employee.IsEditing)
+                    {
+                        <!-- Editing mode for employee -->
+
+                        <td><input @bind="employee.FirstName" /></td>
+                        <td><input @bind="employee.LastName" /></td>
+                        <td><input @bind="employee.Email" @oninput="ValidateEmail" /></td>
+                        <td><input @bind="employee.Phone" @oninput="ValidatePhoneNumber" /></td>
+                        <td><input @bind="employee.Position" /></td>
+                        <td>
+                            <button @onclick="() => SaveEmployee(employee)">Save</button>
+                            <button @onclick="() => CancelEdit(employee)">Cancel</button>
+                        </td>
+                    }
+                    else
+                    {
+                        <!-- Display mode for employee -->
+
+                        <td>@employee.FirstName</td>
+                        <td>@employee.LastName</td>
+                        <td>@employee.Email</td>
+                        <td>@employee.Phone</td>
+                        <td>@employee.Position</td>
+                        <td>
+                            <button @onclick="() => EditEmployee(employee)">Edit</button>
+                            <button @onclick="() => RemoveEmployee(employee.UserId)">Remove</button>
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .error-message {
+        color: red;
+        font-size: 12px;
+    }
+
+    .section-title {
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    .add-employee-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 30px;
+    }
+
+    .table th, .table td {
+        padding: 10px;
+    }
+</style>
+
+@code {
+    // New employee object to store form data
+    private User newEmployee = new User();
+    // List to hold all employees retrieved from the DB
+    private List<User> employees = new List<User>();
+    // Instance of DatabaseHelper to interact with the DB
+    private DatabaseHelper dbHelper;
+
+    // Error messages
+    private string emailErrorMessage;
+    private string phoneErrorMessage;
+
+    protected override void OnInitialized()
+    {
+        dbHelper = new DatabaseHelper("ResturantDB");
+        employees = dbHelper.GetUsers();
+    }
+
+    // Validate email field ensuring it's not null and follows the pattern
+    private void ValidateEmail(ChangeEventArgs e)
+    {
+        var email = e.Value?.ToString();
+        if (string.IsNullOrEmpty(email) || !System.Text.RegularExpressions.Regex.IsMatch(email, @"^[a-zA-Z0-9._%+-]{1,15}@gmail\.com$"))
+        {
+            emailErrorMessage = "Email must be between 1 to 15 characters followed by '@gmail.com'.";
+        }
+        else
+        {
+            emailErrorMessage = null;
+        }
+    }
+
+    // Validate phone field ensuring it's not null and is exactly 10 digits
+    private void ValidatePhoneNumber(ChangeEventArgs e)
+    {
+        var phone = e.Value.ToString();
+        if (string.IsNullOrEmpty(phone) || !System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\d{10}$"))
+        {
+            phoneErrorMessage = "Phone number must be 10 digits long.";
+        }
+        else
+        {
+            phoneErrorMessage = null;
+        }
+    }
+
+    // Adds employee if all conditions are met
+    private void AddEmployee()
+    {
+        ValidateEmail(new ChangeEventArgs { Value = newEmployee.Email });
+        ValidatePhoneNumber(new ChangeEventArgs { Value = newEmployee.Phone });
+
+        // Check if any field is empty or invalid
+        if (string.IsNullOrEmpty(newEmployee.FirstName) || double.TryParse(newEmployee.FirstName, out _) ||
+            string.IsNullOrEmpty(newEmployee.LastName) || double.TryParse(newEmployee.LastName, out _) ||
+            string.IsNullOrEmpty(newEmployee.Email) || string.IsNullOrEmpty(newEmployee.Phone) ||
+            string.IsNullOrEmpty(newEmployee.Position) || double.TryParse(newEmployee.Position, out _) ||
+            emailErrorMessage != null || phoneErrorMessage != null)
+        {
+            return;
+        }
+
+        // Check if email or phone number already exists in the database
+        if (employees.Any(emp => emp.Email == newEmployee.Email))
+        {
+            emailErrorMessage = "This email already exists.";
+            return;
+        }
+
+        if (employees.Any(emp => emp.Phone == newEmployee.Phone))
+        {
+            phoneErrorMessage = "This phone number already exists.";
+            return;
+        }
+
+        dbHelper.AddUser(newEmployee.FirstName, newEmployee.LastName, newEmployee.Email, newEmployee.Phone, newEmployee.Position);
+        employees = dbHelper.GetUsers();
+        newEmployee = new User(); // Reset the form
+    }
+
+    // Enables editing mode for an employee
+    private void EditEmployee(User employee)
+    {
+        employee.IsEditing = true;
+    }
+
+    // Saves employee details if validation is true and conditions are met
+    private void SaveEmployee(User employee)
+    {
+        ValidateEmail(new ChangeEventArgs { Value = employee.Email });
+        ValidatePhoneNumber(new ChangeEventArgs { Value = employee.Phone });
+
+        // No need to check for existing emails or phone numbers when editing
+        if (emailErrorMessage != null || phoneErrorMessage != null ||
+            string.IsNullOrEmpty(employee.FirstName) || double.TryParse(employee.FirstName, out _) ||
+            string.IsNullOrEmpty(employee.LastName) || double.TryParse(employee.LastName, out _) ||
+            string.IsNullOrEmpty(employee.Position) || double.TryParse(employee.Position, out _))
+        {
+            return;
+        }
+
+        dbHelper.UpdateUser(employee.UserId, employee.FirstName, employee.LastName, employee.Email, employee.Phone, employee.Position);
+        employee.IsEditing = false;
+        employees = dbHelper.GetUsers();
+    }
+
+    private void CancelEdit(User employee)
+    {
+        employee.IsEditing = false;
+        employees = dbHelper.GetUsers(); // Reload the employees to discard changes
+    }
+
+    // Method to remove an employee from the DB and refresh the list of employees
+    private void RemoveEmployee(int id)
+    {
+        dbHelper.DeleteUser(id);
+        employees = dbHelper.GetUsers();
+    }
+}
+

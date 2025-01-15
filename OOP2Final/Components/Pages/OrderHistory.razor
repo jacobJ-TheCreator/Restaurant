@@ -1,0 +1,84 @@
+@*
+Authors:
+Mostapha
+Jacob
+Noah
+Anton
+
+Version: 2024-08-12
+
+Description: This page displays the order history for the restaurant management system
+It allows users to view past orders, including details like order ID, table number, customer name, and items ordered
+The page also provides functionality to remove orders from the history and navigate back to the order creation page
+
+*@
+
+@page "/order-history"
+@using ResturantManagmentSystem.Components
+@inject NavigationManager NavigationManager
+
+<h1>Order History</h1>
+
+@if (orderHistory == null || orderHistory.Count == 0)
+{
+    <p>No orders found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Table Number</th>
+                <th>Customer Name</th>
+                <th>Items</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in orderHistory)
+            {
+                <tr>
+                    <td>@order.OrderId</td>
+                    <td>@order.TableNumber</td>
+                    <td>@order.CustomerName</td>
+                    <td>@string.Join(", ", order.Items)</td>
+                    <td>
+                        <button @onclick="() => RemoveOrder(order.OrderId)">Remove</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<button @onclick="NavigateBack">Back</button>
+
+@code {
+    // List to store order history items retrieved from the DB
+    private List<OrderHistoryItem> orderHistory;
+
+    // Loads order history from the database when initialized
+    protected override void OnInitialized()
+    {
+        var dbHelper = new DatabaseHelper("ResturantDB");
+        orderHistory = dbHelper.GetOrderHistory();
+        orderHistory = dbHelper.GetOrderHistory();
+    }
+
+    // Removes an order from the order history and appends the list
+    private void RemoveOrder(int orderId)
+    {
+        var dbHelper = new DatabaseHelper("ResturantDB");
+        dbHelper.DeleteOrderHistory(orderId);
+        orderHistory = dbHelper.GetOrderHistory();
+        orderHistory = dbHelper.GetOrderHistory();
+    }
+
+    // Navigates back to the order creation page
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/create-order");
+        NavigationManager.NavigateTo("/create-order");
+    }
+}

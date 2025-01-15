@@ -1,0 +1,305 @@
+@*
+Authors:
+Mostapha
+Jacob 
+Noah 
+Anton
+
+Version: 2024-08-12
+
+Description:
+This page allows users to create an new order within the restaurant management system
+it includes features for entering the customes name, selecting a table number,
+choosing items from the menu, and viewing the order summary before completing the order
+Users can also navigate to the order history from this page.
+*@
+@page "/create-order"
+@using ResturantManagmentSystem.Components
+@inject NavigationManager NavigationManager
+
+<h1>Create Order</h1>
+
+<div>
+    <!-- Customer name input section -->
+
+    <div class="order-inputs">
+        <div>
+            <label for="customerName">Customer Name:</label>
+            <input id="customerName" @bind="customerName" />
+            @if (string.IsNullOrWhiteSpace(customerName))
+            {
+                <span style="color: red;">Customer Name cannot be empty.</span>
+            }
+        </div>
+
+        <!-- Table number input and validating-->
+
+
+        <div style="margin-left: 20px;">
+            <label for="tableNumber">Table Number:</label>
+            <input id="tableNumber" type="number" style="width: 50px;" @bind="tableNumber" @oninput="ValidateTableNumber" />
+            @if (isTableNumberInvalid)
+            {
+                <span style="color: red;">Number must be between 1-50</span>
+            }
+        </div>
+
+        <!-- Menu item selection and adding -->
+
+        <div style="margin-left: 20px;">
+            <label for="itemName">Select Item:</label>
+            <select id="itemName" @bind="selectedItemId">
+                <option value="">Select an item</option>
+                @foreach (var item in availableMenuItems)
+                {
+                    <option value="@item.ItemId">@item.Name</option>
+                }
+            </select>
+            <button @onclick="AddSelectedItem">Add Item</button>
+        </div>
+    </div>
+
+    <!-- Display items added to the order -->
+
+
+    <h3>Order Items</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in orderItems)
+            {
+                <tr>
+                    <td>@item.Name</td>
+                    <td>@item.Price.ToString("C")</td>
+                    <td>@item.Quantity</td>
+                    <td>
+                        <button @onclick="() => DecreaseQuantity(item)">-</button>
+                        <button @onclick="() => IncreaseQuantity(item)">+</button>
+                        <button @onclick="() => RemoveItem(item)">Remove</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Display total cost of order -->
+
+
+    <h3>Total: @orderTotal.ToString("C")</h3>
+
+    <!-- Buttons to complete the order or navigate to order history -->
+    <button @onclick="CompleteOrder">Complete Order</button>
+    <button @onclick="NavigateToOrderHistory">Order History</button>
+</div>
+
+<style>
+    .order-inputs {
+        display: flex;
+        align-items: center;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    .table {
+        margin-top: 20px;
+    }
+</style>
+
+@code {
+    // Variables to hold customer and order details
+    private string customerName = "";
+    private int tableNumber;
+    private bool isTableNumberInvalid;
+    private int selectedItemId;
+    private List<ResturantManagmentSystem.Components.MenuItem> availableMenuItems = new List<ResturantManagmentSystem.Components.MenuItem>(); 
+    private List<OrderItem> orderItems = new List<OrderItem>();
+    private double orderTotal;
+
+    // Initializes the page, fetches the available menu items from the database
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            var dbHelper = new DatabaseHelper("ResturantDB");
+            availableMenuItems = dbHelper.GetMenuItems();
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error fetching menu items: " + ex.Message);
+        }
+    }
+
+    // Add the selected item to the order
+
+    private void AddSelectedItem()
+    {
+        try
+        {
+            var selectedItem = availableMenuItems.FirstOrDefault(item => item.ItemId == selectedItemId);
+            if (selectedItem != null)
+            {
+                var existingItem = orderItems.FirstOrDefault(i => i.Name == selectedItem.Name);
+                if (existingItem != null)
+                {
+                    existingItem.Quantity++;
+                }
+                else
+                {
+                    var newItem = new OrderItem { Name = selectedItem.Name, Price = selectedItem.Cost, Quantity = 1 };
+                    orderItems.Add(newItem);
+                }
+                orderTotal += selectedItem.Cost;
+                selectedItemId = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error adding item to order: " + ex.Message);
+        }
+    }
+
+    // Increase the quantity of an item in the order
+
+
+    private void IncreaseQuantity(OrderItem item)
+    {
+        try
+        {
+            item.Quantity++;
+            orderTotal += item.Price;
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error increasing quantity: " + ex.Message);
+        }
+    }
+
+    // Decrease quantity of an item in the order
+    private void DecreaseQuantity(OrderItem item)
+    {
+        try
+        {
+            if (item.Quantity > 1)
+            {
+                item.Quantity--;
+                orderTotal -= item.Price;
+            }
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error decreasing quantity: " + ex.Message);
+        }
+    }
+
+    // Remove an item from the order
+    private void RemoveItem(OrderItem item)
+    {
+        try
+        {
+            orderTotal -= item.Price * item.Quantity;
+            orderItems.Remove(item);
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error removing item: " + ex.Message);
+        }
+    }
+
+    // Complete the order and save it to the database
+    private void CompleteOrder()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(customerName))
+            {
+                HandleError("Customer Name cannot be empty.");
+                return;
+            }
+
+            if (tableNumber < 1 || tableNumber > 50)
+            {
+                isTableNumberInvalid = true;
+                return;
+            }
+
+            var dbHelper = new DatabaseHelper("ResturantDB");
+            dbHelper.AddOrder(tableNumber, customerName, orderItems.Select(item => $"{item.Name} ({item.Quantity})").ToList());
+
+            ResetOrder();
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error completing order: " + ex.Message);
+        }
+    }
+
+    // Navigate to the order history page
+
+    private void NavigateToOrderHistory()
+    {
+        try
+        {
+            NavigationManager.NavigateTo("/order-history");
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error navigating to order history: " + ex.Message);
+        }
+    }
+
+    // Validate the table number input
+
+    private void ValidateTableNumber(ChangeEventArgs e)
+    {
+        try
+        {
+            if (int.TryParse(e.Value.ToString(), out int value))
+            {
+                isTableNumberInvalid = value < 1 || value > 50;
+            }
+            else
+            {
+                isTableNumberInvalid = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            HandleError("Error validating table number: " + ex.Message);
+        }
+    }
+
+    // Reset the order form after completion or cancellation
+
+    private void ResetOrder()
+    {
+        customerName = string.Empty;
+        tableNumber = 0;
+        orderItems.Clear();
+        orderTotal = 0;
+        isTableNumberInvalid = false;
+    }
+
+    // Handle and log errors
+
+    private void HandleError(string message)
+    {
+        Console.WriteLine(message);
+    }
+
+    // Class to represent an item in the order
+
+    private class OrderItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public int Quantity { get; set; }
+    }
+}
